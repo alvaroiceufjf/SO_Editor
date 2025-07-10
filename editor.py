@@ -6,101 +6,127 @@ Desfazer/Refazer
 Interface Gráfica(Facilita a visualização)
 
 """
-import os
+import tkinter as tk
+from tkinter import filedialog, messagebox, scrolledtext
 
-def abrir_arquivo(nome_arquivo):
-    """Abre um arquivo e retorna seu conteúdo."""
-    try:
-        with open(nome_arquivo, 'r', encoding='utf-8') as f:
-            conteudo = f.read()
-        return conteudo
-    except FileNotFoundError:
-        print(f"Erro: O arquivo '{nome_arquivo}' não foi encontrado.")
-        return None
-    except Exception as e:
-        print(f"Erro ao abrir o arquivo: {e}")
-        return None
+class TextEditor:
+    def __init__(self, master):
+        self.master = master
+        master.title("Editor de Texto Simples (Tkinter)")
+        master.geometry("800x600") # Define o tamanho inicial da janela
 
-def salvar_arquivo(nome_arquivo, conteudo):
-    """Salva o conteúdo em um arquivo."""
-    try:
-        with open(nome_arquivo, 'w', encoding='utf-8') as f:
-            f.write(conteudo)
-        print(f"Arquivo '{nome_arquivo}' salvo com sucesso!")
-        return True
-    except Exception as e:
-        print(f"Erro ao salvar o arquivo: {e}")
-        return False
+        self.current_file = None # Armazena o caminho do arquivo atualmente aberto
 
-def editor_texto():
-    """Função principal do editor de texto."""
-    print("--- Editor de Texto Simples ---")
-    print("Comandos: 'abrir <nome_arquivo>', 'novo <nome_arquivo>', 'sair'")
+        # --- Widget de Texto Principal ---
+        # Usamos scrolledtext.ScrolledText para ter barras de rolagem automáticas
+        self.text_area = scrolledtext.ScrolledText(master, wrap='word', undo=True)
+        self.text_area.pack(expand=True, fill='both', padx=5, pady=5)
 
-    nome_arquivo_atual = None
-    conteudo_atual = ""
+        # --- Menu Bar ---
+        self.menu_bar = tk.Menu(master)
+        master.config(menu=self.menu_bar)
 
-    while True:
-        comando = input("\n> ").strip().split(maxsplit=1)
-        acao = comando[0]
+        # Menu 'Arquivo'
+        self.file_menu = tk.Menu(self.menu_bar, tearoff=0)
+        self.menu_bar.add_cascade(label="Arquivo", menu=self.file_menu)
+        self.file_menu.add_command(label="Novo", command=self.new_file)
+        self.file_menu.add_command(label="Abrir...", command=self.open_file)
+        self.file_menu.add_command(label="Salvar", command=self.save_file)
+        self.file_menu.add_command(label="Salvar Como...", command=self.save_file_as)
+        self.file_menu.add_separator()
+        self.file_menu.add_command(label="Sair", command=master.quit)
 
-        if acao == "abrir":
-            if len(comando) > 1:
-                nome_arquivo_atual = comando[1]
-                conteudo = abrir_arquivo(nome_arquivo_atual)
-                if conteudo is not None:
-                    conteudo_atual = conteudo
-                    print("\n--- Conteúdo do Arquivo ---")
-                    print(conteudo_atual)
-                    print("--------------------------")
-                else:
-                    nome_arquivo_atual = None # Limpa se não conseguir abrir
-            else:
-                print("Uso: abrir <nome_arquivo>")
+        # Menu 'Editar' (opcional, mas bom para desfazer/refazer)
+        self.edit_menu = tk.Menu(self.menu_bar, tearoff=0)
+        self.menu_bar.add_cascade(label="Editar", menu=self.edit_menu)
+        self.edit_menu.add_command(label="Desfazer", command=self.text_area.edit_undo)
+        self.edit_menu.add_command(label="Refazer", command=self.text_area.edit_redo)
 
-        elif acao == "novo":
-            if len(comando) > 1:
-                nome_arquivo_atual = comando[1]
-                conteudo_atual = ""
-                print(f"Novo arquivo '{nome_arquivo_atual}' criado (vazio).")
-            else:
-                print("Uso: novo <nome_arquivo>")
+        # --- Status Bar ---
+        self.status_bar = tk.Label(master, text="Pronto", bd=1, relief=tk.SUNKEN, anchor=tk.W)
+        self.status_bar.pack(side=tk.BOTTOM, fill=tk.X)
 
-        elif acao == "editar":
-            if nome_arquivo_atual:
-                print(f"\n--- Editando '{nome_arquivo_atual}' ---")
-                print("Digite seu texto. Pressione Enter em uma linha vazia para finalizar.")
-                linhas = []
-                while True:
-                    linha = input()
-                    if not linha:
-                        break
-                    linhas.append(linha)
-                conteudo_atual = "\n".join(linhas)
-                print("Edição finalizada. Use 'salvar' para gravar as alterações.")
-            else:
-                print("Nenhum arquivo aberto ou novo. Use 'abrir' ou 'novo' primeiro.")
+        self.update_title()
 
-        elif acao == "salvar":
-            if nome_arquivo_atual:
-                salvar_arquivo(nome_arquivo_atual, conteudo_atual)
-            else:
-                print("Nenhum arquivo para salvar. Abra ou crie um arquivo primeiro.")
-
-        elif acao == "mostrar":
-            if nome_arquivo_atual:
-                print(f"\n--- Conteúdo atual de '{nome_arquivo_atual}' ---")
-                print(conteudo_atual)
-                print("---------------------------------------------")
-            else:
-                print("Nenhum arquivo aberto ou novo para mostrar.")
-
-        elif acao == "sair":
-            print("Saindo do editor. Até mais!")
-            break
-
+    def update_title(self):
+        """Atualiza o título da janela para mostrar o nome do arquivo."""
+        if self.current_file:
+            self.master.title(f"Editor de Texto Simples - {self.current_file.split('/')[-1]}")
         else:
-            print("Comando desconhecido. Comandos: 'abrir <nome_arquivo>', 'novo <nome_arquivo>', 'editar', 'salvar', 'mostrar', 'sair'")
+            self.master.title("Editor de Texto Simples - Sem Título")
 
+    def new_file(self):
+        """Cria um novo arquivo (limpa a área de texto)."""
+        if self.text_area.get(1.0, tk.END).strip() and \
+           not messagebox.askyesno("Novo Arquivo", "Deseja salvar as alterações antes de criar um novo arquivo?"):
+            # Se o texto não estiver vazio e o usuário não quiser salvar, continua
+            pass
+        else:
+            self.save_file() # Tenta salvar se o usuário quiser
+        
+        self.text_area.delete(1.0, tk.END) # Limpa todo o texto
+        self.current_file = None
+        self.update_title()
+        self.status_bar.config(text="Novo arquivo criado.")
+
+    def open_file(self):
+        """Abre um arquivo existente."""
+        filepath = filedialog.askopenfilename(
+            defaultextension=".txt",
+            filetypes=[("Arquivos de Texto", "*.txt"), ("Todos os Arquivos", "*.*")]
+        )
+        if filepath:
+            try:
+                with open(filepath, "r", encoding="utf-8") as file:
+                    content = file.read()
+                self.text_area.delete(1.0, tk.END) # Limpa o conteúdo atual
+                self.text_area.insert(1.0, content) # Insere o novo conteúdo
+                self.current_file = filepath
+                self.update_title()
+                self.status_bar.config(text=f"Arquivo '{filepath.split('/')[-1]}' aberto.")
+            except Exception as e:
+                messagebox.showerror("Erro ao Abrir Arquivo", f"Não foi possível abrir o arquivo:\n{e}")
+                self.status_bar.config(text="Erro ao abrir arquivo.")
+
+    def save_file(self):
+        """Salva o arquivo atual. Se for um novo arquivo, chama 'Salvar Como'."""
+        if self.current_file:
+            try:
+                content = self.text_area.get(1.0, tk.END)
+                with open(self.current_file, "w", encoding="utf-8") as file:
+                    file.write(content)
+                self.status_bar.config(text=f"Arquivo '{self.current_file.split('/')[-1]}' salvo.")
+                return True
+            except Exception as e:
+                messagebox.showerror("Erro ao Salvar Arquivo", f"Não foi possível salvar o arquivo:\n{e}")
+                self.status_bar.config(text="Erro ao salvar arquivo.")
+                return False
+        else:
+            return self.save_file_as() # Se não há arquivo atual, chama Salvar Como
+
+    def save_file_as(self):
+        """Salva o conteúdo em um novo arquivo ou em um local diferente."""
+        filepath = filedialog.asksaveasfilename(
+            defaultextension=".txt",
+            filetypes=[("Arquivos de Texto", "*.txt"), ("Todos os Arquivos", "*.*")]
+        )
+        if filepath:
+            try:
+                content = self.text_area.get(1.0, tk.END)
+                with open(filepath, "w", encoding="utf-8") as file:
+                    file.write(content)
+                self.current_file = filepath
+                self.update_title()
+                self.status_bar.config(text=f"Arquivo '{filepath.split('/')[-1]}' salvo como.")
+                return True
+            except Exception as e:
+                messagebox.showerror("Erro ao Salvar Arquivo", f"Não foi possível salvar o arquivo:\n{e}")
+                self.status_bar.config(text="Erro ao salvar arquivo.")
+                return False
+        return False # Retorna False se o usuário cancelar a caixa de diálogo
+
+# --- Execução do Editor ---
 if __name__ == "__main__":
-    editor_texto()
+    root = tk.Tk()
+    editor = TextEditor(root)
+    root.mainloop()
