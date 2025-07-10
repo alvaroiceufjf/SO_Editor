@@ -1,9 +1,6 @@
 """
 A FAZER(por prioridade):
-Localização do Cursor(Ediçao local ao invés de sobrescrever)
-Buffer de Edição(Facilita o Desfazer/Refazer)
-Desfazer/Refazer
-Interface Gráfica(Facilita a visualização)
+
 
 """
 import tkinter as tk
